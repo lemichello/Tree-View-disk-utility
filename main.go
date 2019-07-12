@@ -21,18 +21,18 @@ func getOnlyDirectories(data []os.FileInfo) []os.FileInfo {
 }
 
 func getFileString(element os.FileInfo, prefixes string, isLast bool) string {
-	var sizeStr string
+	sizeStr := " ("
 
 	if element.Size() == 0 {
-		sizeStr = "empty"
+		sizeStr += "empty)"
 	} else {
-		sizeStr = strconv.FormatInt(element.Size(), 10) + "b"
+		sizeStr += strconv.FormatInt(element.Size(), 10) + "b)"
 	}
 
 	if isLast {
-		return prefixes + "└───" + element.Name() + " (" + sizeStr + ")"
+		return prefixes + "└───" + element.Name() + sizeStr
 	} else {
-		return prefixes + "├───" + element.Name() + " (" + sizeStr + ")"
+		return prefixes + "├───" + element.Name() + sizeStr
 	}
 }
 
@@ -47,19 +47,20 @@ func getDirString(element os.FileInfo, prefixes string, isLast bool) string {
 func printTree(out io.Writer, path string, printFiles bool, prefixes string) (err error) {
 	data, err := ioutil.ReadDir(path)
 
-	if !printFiles {
-		data = getOnlyDirectories(data)
-	}
-
 	if err != nil {
 		return
 	}
 
+	if !printFiles {
+		data = getOnlyDirectories(data)
+	}
+
+	// Directory is empty.
 	if len(data) == 0 {
 		return
 	}
 
-	for i := 0; i < len(data); i++ {
+	for i := range data {
 		element := data[i]
 
 		// This is the last element.
@@ -74,11 +75,10 @@ func printTree(out io.Writer, path string, printFiles bool, prefixes string) (er
 		if element.IsDir() {
 			_, _ = fmt.Fprintln(out, getDirString(element, prefixes, false))
 
-			err = printTree(out, path+"/"+element.Name(), printFiles, prefixes+"│\t")
-
-			if err != nil {
+			if err = printTree(out, path+"/"+element.Name(), printFiles, prefixes+"│\t"); err != nil {
 				return
 			}
+			// Element is file.
 		} else {
 			_, _ = fmt.Fprintln(out, getFileString(element, prefixes, false))
 		}
@@ -98,21 +98,15 @@ func processLastElement(element os.FileInfo, out io.Writer, path string, prefixe
 	return
 }
 
-func dirTree(out io.Writer, path string, printFiles bool) (err error) {
-	err = printTree(out, path, printFiles, "")
-
-	if err != nil {
-		return
-	}
-
-	return
+func dirTree(out io.Writer, path string, printFiles bool) error {
+	return printTree(out, path, printFiles, "")
 }
 
 func main() {
 	out := os.Stdout
 
 	if !(len(os.Args) == 2 || len(os.Args) == 3) {
-		panic("usage go run main.go . [-f]")
+		panic("use go run main.go testdata(or another directory) [-f]")
 	}
 
 	path := os.Args[1]
